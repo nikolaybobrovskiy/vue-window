@@ -1,7 +1,7 @@
-import Vue, * as vue from 'vue'
+import { defineComponent, h, provide, type CSSProperties, type Component } from 'vue'
 
 
-export type Style = Partial<CSSStyleDeclaration>
+export type Style = CSSProperties
 
 
 export interface WindowStyle {
@@ -17,19 +17,18 @@ export interface WindowStyle {
 export const WINDOW_STYLE_KEY = '@hscmap/vue-window/windowStyle'
 
 
-export function StyleFactory(windowStyle: WindowStyle): vue.ComponentOptions<Vue> {
-  return {
-    provide() {
-      return { [WINDOW_STYLE_KEY]: windowStyle }
+export function StyleFactory(windowStyle: WindowStyle): Component & { readonly windowStyle: WindowStyle } {
+  return Object.assign(defineComponent({
+    name: 'WindowStyle',
+    setup(_, { slots }) {
+      provide(WINDOW_STYLE_KEY, windowStyle)
+      return () => h('div', slots.default?.())
     },
-    render(this: Vue, h: vue.CreateElement) {
-      return h('div', this.$slots.default)
-    },
-  }
+  }), { windowStyle })
 }
 
 
-export const StyleBlack: vue.ComponentOptions<Vue> = StyleFactory({
+export const StyleBlack = StyleFactory({
   window: {
     color: '#fff',
     boxShadow: '0 0 6pt rgba(255, 255, 255, 0.75)',
@@ -53,7 +52,7 @@ export const StyleBlack: vue.ComponentOptions<Vue> = StyleFactory({
 })
 
 
-export const StyleWhite: vue.ComponentOptions<Vue> = StyleFactory({
+export const StyleWhite = StyleFactory({
   window: {
     color: '#000',
     boxShadow: '0 2pt 4pt rgba(0, 0, 0, 0.5)',
@@ -77,7 +76,7 @@ export const StyleWhite: vue.ComponentOptions<Vue> = StyleFactory({
 })
 
 
-export const StyleMetal: vue.ComponentOptions<Vue> = StyleFactory({
+export const StyleMetal = StyleFactory({
   window: {
     color: '#000',
     boxShadow: '0 4pt 8pt rgba(0, 0, 0, 0.5)',

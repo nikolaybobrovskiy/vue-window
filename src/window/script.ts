@@ -1,338 +1,267 @@
-import { Component, Inject, Prop, Vue, Watch } from "vue-property-decorator";
-import { naturalSize } from "../dom";
-import { DraggableHelper } from "../draggable_helper";
-import { ResizableHelper } from "../resizable_helper";
-import { WINDOW_STYLE_KEY, WindowStyle } from "../style";
-import { windows } from '../windows';
-import { ZElement } from "../z_element";
+import { computed, defineComponent, inject, nextTick, onBeforeUnmount, onMounted, ref, watch, type ExtractPropTypes, type CSSProperties } from 'vue'
+import { naturalSize } from '../dom'
+import { DraggableHelper } from '../draggable_helper'
+import { ResizableHelper } from '../resizable_helper'
+import { WINDOW_STYLE_KEY, StyleWhite, type WindowStyle } from '../style'
+import { windows } from '../windows'
+import { ZElement } from '../z_element'
 import MyButton from '../button/index.vue'
 
-const instances: WindowType[] = []
-
-
-interface Rect {
-  left: number
-  top: number
-  width: number
-  height: number
+export const windowProps = {
+  isOpen: { type: Boolean, default: true },
+  title: { type: String, default: '' },
+  closeButton: { type: Boolean, default: false },
+  resizable: { type: Boolean, default: false },
+  isScrollable: { type: Boolean, default: false },
+  padding: { type: Number, default: 8 },
+  activateWhenOpen: { type: Boolean, default: true },
+  positionHint: String,
+  zGroup: { type: Number, default: 0 },
+  overflow: { type: String, default: 'visible' },
+  left: Number, top: Number, width: Number, height: Number,
+  minWidth: { type: Number, default: 1 },
+  minHeight: { type: Number, default: 0 },
+  maxWidth: Number, maxHeight: Number,
 }
 
+export type WindowProps = Readonly<ExtractPropTypes<typeof windowProps>>
 
-@Component({
-  components: { MyButton }
-})
-export class WindowType extends Vue {
-  @Prop({ type: Boolean, default: true })
-  isOpen!: boolean
+export interface WindowInstance extends WindowProps {
+  windowElement(): HTMLElement
+  titlebarElement(): HTMLElement
+  contentElement(): HTMLElement
+  activate(): void
+  fixPosition(): void
+}
 
-  @Prop({ type: String, default: '' })
-  title!: string
+const instances: WindowInstance[] = []
+interface Rect { left: number; top: number; width: number; height: number }
 
-  @Prop({ type: Boolean, default: false })
-  closeButton!: boolean
+export const WindowType = defineComponent({
+  name: 'WindowType',
+  components: { MyButton },
+  props: windowProps,
+  emits: ['activate', 'open', 'close', 'closebuttonclick', 'move-start', 'move-end',
+    'resize', 'resize-start', 'resize-end', 'update:isOpen', 'update:left', 'update:top', 'update:width', 'update:height'],
+  setup(props, { emit, expose }) {
+    const windowStyle = inject<WindowStyle>(WINDOW_STYLE_KEY, StyleWhite.windowStyle)
+    const windowRef = ref<HTMLElement>()
+    const titlebarRef = ref<HTMLElement>()
+    const contentRef = ref<HTMLElement>()
+    const zIndex = ref('auto')
+    let zElement: ZElement | undefined
+    let draggableHelper: DraggableHelper | undefined
+    let resizableHelper: ResizableHelper | undefined
+    let openCount = 0
+    let disposed = false
 
-  @Prop({ type: Boolean, default: false })
-  resizable!: boolean
+    function windowElement() { return windowRef.value! }
+    function titlebarElement() { return titlebarRef.value! }
+    function contentElement() { return contentRef.value! }
+    function activate() { zElement?.raise(); emit('activate') }
+    // Keep registry entries and template refs reading live props, not setup-time snapshots.
+    const instance = Object.defineProperties({
+      windowElement, titlebarElement, contentElement, activate, fixPosition: fixWindowPosition,
+    }, Object.fromEntries(Object.keys(props).map(key => [key, {
+      enumerable: true, get: () => props[key as keyof typeof props],
+    }]))) as WindowInstance
 
-  @Prop({ type: Boolean, default: false })
-  isScrollable!: boolean
-
-  @Prop({ type: Number, default: 8 })
-  padding?: number
-
-  @Prop({ type: Boolean, default: true })
-  activateWhenOpen!: boolean
-
-  @Prop({ type: String })
-  positionHint?: string
-
-  @Prop({ type: Number, default: 0 })
-  zGroup!: number
-
-  @Prop({ default: 'visible' })
-  overflow!: string
-
-  @Inject(WINDOW_STYLE_KEY)
-  windowStyle!: WindowStyle
-
-  private zIndex = 'auto'
-
-  draggableHelper?: DraggableHelper
-  resizableHelper?: ResizableHelper
-
-  zElement!: ZElement
-
-  mounted() {
-    instances.push(this)
-    this.zElement = new ZElement(this.zGroup, zIndex => this.zIndex = `${zIndex}`)
-    this.isOpen && this.onIsOpenChange(true)
-    windows.add(this)
-  }
-
-  beforeDestroy() {
-    windows.delete(this)
-    this.zElement.unregister()
-    this.resizableHelper && this.resizableHelper.teardown()
-    this.draggableHelper && this.draggableHelper.teardown()
-    instances.splice(instances.indexOf(this), 1)
-  }
-
-  windowElement() {
-    return this.$refs.window as HTMLElement
-  }
-
-  titlebarElement() {
-    return this.$refs.titlebar as HTMLElement
-  }
-
-  contentElement() {
-    return this.$refs.content as HTMLElement
-  }
-
-  activate() {
-    this.zElement.raise()
-    this.$emit('activate')
-  }
-
-  get styleWindow() {
-    return { ...this.windowStyle.window, zIndex: this.zIndex, overflow: this.overflow }
-  }
-
-  get styleTitlebar() {
-    return this.windowStyle.titlebar
-  }
-
-  get styleContent() {
-    const style = { ...this.windowStyle.content };
-
-    if (this.resizable) {
-      style.padding = '0';
-    } else if (this.padding != undefined) {
-      style.padding = `${this.padding}px`
-    }
-
-    if (this.isScrollable) {
-      style.overflow = 'auto';
-    }
-
-    return style;
-  }
-
-  @Watch('resizable')
-  onResizableChange(resizable: boolean) {
-    console.error("prop 'resizable' can't be changed")
-  }
-
-  private openCount = 0
-
-  @Watch('isOpen')
-  onIsOpenChange(isOpen: boolean) {
-    if (isOpen) {
-      this.$nextTick(() => {
-        if (this.openCount++ == 0) {
-          this.setWindowRect(this)
-          this.setInitialPosition()
-        }
-        this.resizable && this.onWindowResize()
-        this.onWindowMove()
-        this.draggableHelper = new DraggableHelper(this.titlebarElement(), this.windowElement(), {
-          onMove: () => this.onWindowMove(),
-          onMoveStart: () => this.$emit('move-start'),
-          onMoveEnd: () => this.$emit('move-end'),
-        })
-        this.resizable && this.initResizeHelper()
-      })
-      this.activateWhenOpen && this.activate()
-    }
-  }
-
-  @Watch('zGroup')
-  onZGroupChange() {
-    this.zElement.group = this.zGroup
-  }
-
-  fixPosition() {
-    const w = this.windowElement()
-    const rect = w.getBoundingClientRect()
-    if (rect.left < 0) w.style.left = `0px`
-    if (rect.top < 0) w.style.top = `0px`
-    if (rect.right > window.innerWidth) w.style.left = `${window.innerWidth - rect.width}px`
-    if (rect.bottom > window.innerHeight) w.style.top = `${window.innerHeight - rect.height}px`
-  }
-
-  @Prop({ type: Number })
-  left?: number
-  @Watch('left')
-  onLeftChange(left: number) {
-    this.setWindowRect({ left })
-    this.onWindowMove(false)
-  }
-
-  @Prop({ type: Number })
-  top?: number
-  @Watch('top')
-  onTopChange(top: number) {
-    this.setWindowRect({ top })
-    this.onWindowMove(false)
-  }
-
-  @Prop({ type: Number })
-  width?: number
-  @Watch('width')
-  onWidthChange(width: number) {
-    this.setWindowRect({ width })
-    this.onWindowResize(false)
-  }
-
-  @Prop({ type: Number })
-  height?: number
-  @Watch('height')
-  onHeightChange(height: number) {
-    this.setWindowRect({ height })
-    this.onWindowResize(false)
-  }
-
-  private setWindowRect({ width, height, top, left }: Partial<Rect>) {
-    const w = this.windowElement()
-    if (width != undefined) {
-      w.style.width = `${width}px`
-    }
-    if (height != undefined) {
-      const tHeight = contentSize(this.titlebarElement()).height
-      w.style.height = `${height + tHeight}px`
-    }
-    if (left != undefined) {
-      w.style.left = `${left}px`
-    }
-    if (top != undefined) {
-      w.style.top = `${top}px`
-    }
-  }
-
-  @Prop({ type: Number, default: 1 })
-  minWidth!: number
-
-  @Prop({ type: Number, default: 0 })
-  minHeight!: number
-
-  @Prop({ type: Number })
-  maxWidth?: number
-
-  @Prop({ type: Number })
-  maxHeight?: number
-
-  private initResizeHelper() {
-    const { height: titlebarHeight } = naturalSize(this.titlebarElement())
-    this.resizableHelper = new ResizableHelper(this.windowElement(), {
-      onResize: () => this.onWindowResize(),
-      onResizeStart: () => this.$emit('resize-start'),
-      onResizeEnd: () => this.$emit('resize-end'),
-      minWidth: this.minWidth,
-      minHeight: this.minHeight + titlebarHeight,
-      maxWidth: this.maxWidth,
-      maxHeight: this.maxHeight ? this.maxHeight + titlebarHeight : undefined,
+    const styleWindow = computed(() => ({ ...windowStyle.window, zIndex: zIndex.value, overflow: props.overflow as CSSProperties['overflow'] }))
+    const styleTitlebar = computed(() => windowStyle.titlebar)
+    const styleContent = computed(() => {
+      const style = { ...windowStyle.content }
+      if (props.resizable) style.padding = '0'
+      else if (props.padding !== undefined) style.padding = `${props.padding}px`
+      if (props.isScrollable) style.overflow = 'auto'
+      return style
     })
-  }
 
-  private onWindowResize(emitUpdateEvent = true) {
-    const w = this.windowElement()
-    const t = this.titlebarElement()
-    const c = this.contentElement()
-    const { width: cW0, height: cH0 } = contentSize(c)
-    const { width: wW, height: wH } = contentSize(w)
-    const tH = contentSize(t).height
-    const cW1 = wW - (c.offsetWidth - cW0)
-    const cH1 = (wH - tH - (c.offsetHeight - cH0))
-    c.style.width = `${cW1}px`
-    c.style.height = `${cH1}px`
-    fixPosition()
-    this.$emit('resize', new WindowResizeEvent(cW1, cH1))
-    if (emitUpdateEvent) {
-      this.$emit('update:width', cW1)
-      this.$emit('update:height', cH1)
+    function teardownHelpers() {
+      draggableHelper?.teardown()
+      resizableHelper?.teardown()
+      draggableHelper = undefined
+      resizableHelper = undefined
     }
-  }
 
-  private onWindowMove(emitUpdateEvent = true) {
-    this.fixPosition()
-    const { left, top } = this.windowElement().getBoundingClientRect()
-    if (emitUpdateEvent) {
-      this.$emit('update:left', left)
-      this.$emit('update:top', top)
+    function onIsOpenChange(isOpen: boolean) {
+      if (!isOpen) { teardownHelpers(); return }
+      if (props.activateWhenOpen) activate()
+      nextTick(() => {
+        if (disposed || !props.isOpen) return
+        teardownHelpers()
+        if (openCount++ === 0) { setWindowRect(props); setInitialPosition() }
+        if (props.resizable) onWindowResize()
+        onWindowMove()
+        draggableHelper = new DraggableHelper(titlebarElement(), windowElement(), {
+          onMove: () => onWindowMove(),
+          onMoveStart: () => emit('move-start'),
+          onMoveEnd: () => emit('move-end'),
+        })
+        if (props.resizable) initResizeHelper()
+      })
     }
-  }
 
-  // todo: cleanup
-  private setInitialPosition() {
-    const el = this.windowElement()
-    const { width, height } = naturalSize(el)
-    let left: number
-    let top: number
-    if ((this.left !== undefined) != (this.top !== undefined)) {
-      throw new Error(`Either of left or top is specified. Both must be set or not set.`)
+    onMounted(() => {
+      instances.push(instance)
+      zElement = new ZElement(props.zGroup, value => zIndex.value = `${value}`)
+      windows.add(instance)
+      if (props.isOpen) onIsOpenChange(true)
+    })
+    onBeforeUnmount(() => {
+      disposed = true
+      teardownHelpers()
+      zElement?.unregister()
+      windows.delete(instance)
+      instances.splice(instances.indexOf(instance), 1)
+    })
+    watch(() => props.isOpen, onIsOpenChange)
+    watch(() => props.zGroup, group => { if (zElement) zElement.group = group })
+    watch(() => props.resizable, () => console.error("prop 'resizable' can't be changed"))
+    watch(() => props.left, left => { if (windowRef.value) { setWindowRect({ left }); onWindowMove(false) } })
+    watch(() => props.top, top => { if (windowRef.value) { setWindowRect({ top }); onWindowMove(false) } })
+    watch(() => props.width, width => { if (windowRef.value) { setWindowRect({ width }); onWindowResize(false) } })
+    watch(() => props.height, height => { if (windowRef.value) { setWindowRect({ height }); onWindowResize(false) } })
+
+    function fixWindowPosition() {
+      const w = windowElement()
+      const rect = w.getBoundingClientRect()
+      if (rect.left < 0) w.style.left = `0px`
+      if (rect.top < 0) w.style.top = `0px`
+      if (rect.right > window.innerWidth) w.style.left = `${window.innerWidth - rect.width}px`
+      if (rect.bottom > window.innerHeight) w.style.top = `${window.innerHeight - rect.height}px`
     }
-    if (typeof this.left == 'number') {
-      left = this.left
-      top = this.top as number
-    }
-    else {
-      const positionString = this.positionHint || 'auto'
-      switch (positionString) {
-        case 'auto':
-          {
-            let x = 20
-            let y = 50
-            let nTries = 0
-            do {
-              if (instances.every(j => {
-                if (!j.isOpen || this == j)
-                  return true
-                const p = leftTop(j)
-                if (p == null)
-                  return true
-                const { left, top } = p
-                return distance2(left, top, x, y) > 16
-              })) {
-                break
-              }
-              x = (x + 40) % (window.innerWidth - 200)
-              y = (y + 40) % (window.innerHeight - 200)
-            } while (++nTries < 100)
-            left = x
-            top = y
-          }
-          break
-        case 'center':
-          left = (window.innerWidth - width) / 2
-          top = (window.innerHeight - height) / 2
-          break
-        default:
-          try {
-            const nums = positionString.split('/').map(Number)
-            if (nums.length != 2)
-              throw null
-            const [x, y] = nums
-            if (!isFinite(x) || !isFinite(y))
-              throw null
-            left = x >= 0 ? x : window.innerWidth - width + x
-            top = y >= 0 ? y : window.innerHeight - height + y
-          }
-          catch (e) {
-            throw new Error(`invalid position string: ${positionString}`)
-          }
+
+    function setWindowRect({ width, height, top, left }: Partial<Rect>) {
+      const w = windowElement()
+      if (width != undefined) {
+        w.style.width = `${width}px`
+      }
+      if (height != undefined) {
+        const tHeight = contentSize(titlebarElement()).height
+        w.style.height = `${height + tHeight}px`
+      }
+      if (left != undefined) {
+        w.style.left = `${left}px`
+      }
+      if (top != undefined) {
+        w.style.top = `${top}px`
       }
     }
-    el.style.left = `${left}px`
-    el.style.top = `${top}px`
-  }
 
+    function initResizeHelper() {
+      const { height: titlebarHeight } = naturalSize(titlebarElement())
+      resizableHelper = new ResizableHelper(windowElement(), {
+        onResize: () => onWindowResize(),
+        onResizeStart: () => emit('resize-start'),
+        onResizeEnd: () => emit('resize-end'),
+        minWidth: props.minWidth,
+        minHeight: props.minHeight + titlebarHeight,
+        maxWidth: props.maxWidth,
+        maxHeight: props.maxHeight ? props.maxHeight + titlebarHeight : undefined,
+      })
+    }
 
-  closeButtonClick() {
-    this.$emit('closebuttonclick')
-    this.$emit('update:isOpen', false)
-  }
-}
+    function onWindowResize(emitUpdateEvent = true) {
+      const w = windowElement()
+      const t = titlebarElement()
+      const c = contentElement()
+      const { width: cW0, height: cH0 } = contentSize(c)
+      const { width: wW, height: wH } = contentSize(w)
+      const tH = contentSize(t).height
+      const cW1 = wW - (c.offsetWidth - cW0)
+      const cH1 = (wH - tH - (c.offsetHeight - cH0))
+      c.style.width = `${cW1}px`
+      c.style.height = `${cH1}px`
+      fixPosition()
+      emit('resize', new WindowResizeEvent(cW1, cH1))
+      if (emitUpdateEvent) {
+        emit('update:width', cW1)
+        emit('update:height', cH1)
+      }
+    }
 
+    function onWindowMove(emitUpdateEvent = true) {
+      fixWindowPosition()
+      const { left, top } = windowElement().getBoundingClientRect()
+      if (emitUpdateEvent) {
+        emit('update:left', left)
+        emit('update:top', top)
+      }
+    }
+
+    function setInitialPosition() {
+      const el = windowElement()
+      const { width, height } = naturalSize(el)
+      let left: number
+      let top: number
+      if ((props.left !== undefined) != (props.top !== undefined)) {
+        throw new Error(`Either of left or top is specified. Both must be set or not set.`)
+      }
+      if (typeof props.left == 'number') {
+        left = props.left
+        top = props.top as number
+      }
+      else {
+        const positionString = props.positionHint || 'auto'
+        switch (positionString) {
+          case 'auto':
+            {
+              let x = 20
+              let y = 50
+              let nTries = 0
+              do {
+                if (instances.every(j => {
+                  if (!j.isOpen || instance == j)
+                    return true
+                  const p = leftTop(j)
+                  if (p == null)
+                    return true
+                  const { left, top } = p
+                  return distance2(left, top, x, y) > 16
+                })) {
+                  break
+                }
+                x = (x + 40) % (window.innerWidth - 200)
+                y = (y + 40) % (window.innerHeight - 200)
+              } while (++nTries < 100)
+              left = x
+              top = y
+            }
+            break
+          case 'center':
+            left = (window.innerWidth - width) / 2
+            top = (window.innerHeight - height) / 2
+            break
+          default:
+            try {
+              const nums = positionString.split('/').map(Number)
+              if (nums.length != 2)
+                throw null
+              const [x, y] = nums
+              if (!isFinite(x) || !isFinite(y))
+                throw null
+              left = x >= 0 ? x : window.innerWidth - width + x
+              top = y >= 0 ? y : window.innerHeight - height + y
+            }
+            catch (e) {
+              throw new Error(`invalid position string: ${positionString}`)
+            }
+        }
+      }
+      el.style.left = `${left}px`
+      el.style.top = `${top}px`
+    }
+
+    function closeButtonClick() {
+      emit('closebuttonclick')
+      emit('update:isOpen', false)
+    }
+    expose(instance)
+    return { windowRef, titlebarRef, contentRef, styleWindow, styleTitlebar, styleContent, activate, closeButtonClick }
+  },
+})
+
+export type WindowType = WindowInstance
 
 function css2num(s: string | null) {
   return s !== null ? parseFloat(s) : 0
@@ -352,7 +281,7 @@ export class WindowResizeEvent {
 }
 
 
-function leftTop(w: WindowType) {
+function leftTop(w: WindowInstance) {
   const el = w.windowElement()
   const left = parseFloat(el.style.left || 'NaN')
   const top = parseFloat(el.style.top || 'NaN')
@@ -376,4 +305,4 @@ export function fixPosition() {
 }
 
 
-window.addEventListener('resize', e => fixPosition())
+if (typeof window !== 'undefined') window.addEventListener('resize', () => fixPosition())

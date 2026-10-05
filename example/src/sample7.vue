@@ -1,7 +1,7 @@
 <template>
   <div>
     <component v-for="(style, name) in styles" :is="style" :key="name">
-      <hsc-window :title="name" :closeButton="true" :isOpen.sync="isOpen[name]">
+      <hsc-window :title="name" :closeButton="true" v-model:isOpen="isOpen[name]">
         Parameters:
         <fieldset>
           <legend>&alpha;</legend>
@@ -19,6 +19,7 @@
 
 
 <script lang="ts">
+import { defineComponent, markRaw } from 'vue'
 import { StyleFactory, StyleBlack, StyleWhite, StyleMetal } from '../../src'
 import * as _ from 'lodash'
 
@@ -51,19 +52,18 @@ const StyleBluegreen = StyleFactory({
 const styles = { StyleBlack, StyleWhite, StyleMetal, StyleBluegreen }
 
 
-export default <any>{
+export default defineComponent({
   data() {
     return {
-      styles,
+      styles: markRaw(styles),
       isOpen: _.mapValues(styles, v => true)
     }
   },
   methods: {
     toggle() {
-      const self = <any>this
-      for (const k of Object.keys(self.isOpen))
-        self.isOpen[k] = !self.isOpen[k]
+      for (const k of Object.keys(this.isOpen) as (keyof typeof styles)[])
+        this.isOpen[k] = !this.isOpen[k]
     }
   }
-}
+})
 </script>

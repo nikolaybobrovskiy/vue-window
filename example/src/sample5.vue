@@ -2,8 +2,8 @@
   <div>
 
     <hsc-window-style-metal>
-      <template v-for="i in [1, 2, 3, 4]" , :zGroup="0">
-        <hsc-window :key="i" :title="`Base Layer #${i}`">
+      <template v-for="i in [1, 2, 3, 4]" :key="i">
+        <hsc-window :title="`Base Layer #${i}`">
           <fieldset>
             <legend>&alpha;</legend>
             <input type="range" />
@@ -13,8 +13,8 @@
     </hsc-window-style-metal>
 
     <hsc-window-style-black>
-      <template v-for="i in [1, 2, 3, 4]">
-        <hsc-window :key="i" :title="`Floating Layer #${i}`" :zGroup="1">
+      <template v-for="i in [1, 2, 3, 4]" :key="i">
+        <hsc-window :title="`Floating Layer #${i}`" :zGroup="1">
           <fieldset>
             <legend>&alpha;</legend>
             <input type="range" />

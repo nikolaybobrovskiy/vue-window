@@ -4,8 +4,8 @@
       title="Drag Handle"
       :width="400"
       :height="300"
-      :left.sync="left"
-      :top.sync="top"
+      v-model:left="left"
+      v-model:top="top"
     >
       <div
         ref="handle"
@@ -17,8 +17,8 @@
 </template>
 
 <script lang="ts">
-import Vue from 'vue'
-export default Vue.extend({
+import { defineComponent } from 'vue'
+export default defineComponent({
   data() {
     return {
       left: undefined as undefined | number,

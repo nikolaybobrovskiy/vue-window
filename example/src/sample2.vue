@@ -1,7 +1,7 @@
 <template>
   <hsc-window-style-metal>
 
-    <hsc-window title="Window 1" :closeButton="true" :isOpen.sync="isOpen">
+    <hsc-window title="Window 1" :closeButton="true" v-model:isOpen="isOpen">
       Parameters:
       <fieldset>
         <legend>&alpha;</legend>
@@ -20,11 +20,12 @@
 
 
 <script lang="ts">
-export default <any>{
+import { defineComponent } from 'vue'
+export default defineComponent({
   data() {
     return {
       isOpen: true,
     }
   },
-}
+})
 </script>

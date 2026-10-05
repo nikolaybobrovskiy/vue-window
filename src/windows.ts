@@ -1,2 +1,2 @@
-import { WindowType } from "./window/script"
-export const windows = new Set<WindowType>()
+import type { WindowInstance } from './window/script'
+export const windows = new Set<WindowInstance>()

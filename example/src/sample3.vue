@@ -29,8 +29,8 @@
       </fieldset>
     </hsc-window>
 
-    <template v-for="i in [1, 2, 3, 4]">
-      <hsc-window :key="i" :title="`Auto-${i}`">
+    <template v-for="i in [1, 2, 3, 4]" :key="i">
+      <hsc-window :title="`Auto-${i}`">
         <fieldset>
           <legend>&alpha;</legend>
           <input type="range" />
@@ -38,7 +38,7 @@
       </hsc-window>
     </template>
 
-    <hsc-window title="Sync-A" :left.sync="x" :top.sync="y">
+    <hsc-window title="Sync-A" v-model:left="x" v-model:top="y">
       <fieldset>
         <legend>&alpha;</legend>
         <input type="range" />
@@ -56,13 +56,14 @@
 </template>
 
 
-<script>
-export default {
+<script lang="ts">
+import { defineComponent } from 'vue'
+export default defineComponent({
   data() {
     return {
-      x: null,
-      y: null,
+      x: 20,
+      y: 50,
     }
   }
-}
+})
 </script>

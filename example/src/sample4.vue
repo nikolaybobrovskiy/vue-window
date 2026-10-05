@@ -9,7 +9,7 @@
       <div class="radial-gradient-2"></div>
     </hsc-window>
 
-    <hsc-window title="width,height" :resizable="true" :width.sync="width" :height.sync="height" overflow="hidden">
+    <hsc-window title="width,height" :resizable="true" v-model:width="width" v-model:height="height" overflow="hidden">
       <div style="padding: 1em;">
         <button>Cancel</button>
         <button>OK</button>
@@ -19,7 +19,7 @@
       </div>
     </hsc-window>
 
-    <hsc-window title="width,height (sync)" :resizable="true" :width.sync="width" :height.sync="height">
+    <hsc-window title="width,height (sync)" :resizable="true" v-model:width="width" v-model:height="height">
       <p style="padding: 1em;">
         width={{width}}, height={{height}}
       </p>
@@ -31,14 +31,16 @@
 
     <hsc-window title="Scrollable" :resizable="true" :isScrollable="true" :minWidth="100" :minHeight="100" :maxWidth="200" :maxHeight="200">
       <table>
-        <tr>
-          <th>&times;</th>
-          <th v-for="j in range(n)" :key="j" v-html="j"></th>
-        </tr>
-        <tr v-for="i in range(n)" :key="i">
-          <th v-html="i" />
-          <td v-for="j in range(n)" :key="j" v-html="hex(i/n * j/n)" :style="{ backgroundColor: `rgb(${Math.floor(255 * i / n)}, ${Math.floor(255 * j / n)}, 127)` }" />
-        </tr>
+        <tbody>
+          <tr>
+            <th>&times;</th>
+            <th v-for="j in range(n)" :key="j" v-html="j"></th>
+          </tr>
+          <tr v-for="i in range(n)" :key="i">
+            <th v-html="i" />
+            <td v-for="j in range(n)" :key="j" v-html="hex(i/n * j/n)" :style="{ backgroundColor: `rgb(${Math.floor(255 * i / n)}, ${Math.floor(255 * j / n)}, 127)` }" />
+          </tr>
+        </tbody>
       </table>
     </hsc-window>
 
@@ -91,10 +93,11 @@ th {
 
 
 <script lang="ts">
+import { defineComponent } from 'vue'
 import * as _ from 'lodash'
 import { Base64 } from 'js-base64'
 
-export default <any>{
+export default defineComponent({
   data() {
     return {
       n: 21,
@@ -119,5 +122,5 @@ export default <any>{
       `)
     }
   }
-}
+})
 </script>

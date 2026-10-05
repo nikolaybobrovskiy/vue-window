@@ -6,9 +6,9 @@ export class ZElement {
   }
 
   set group(_group: number) {
-    this._group = _group
     const a1 = a(this._group)
     const a2 = a(_group)
+    this._group = _group
     a1.splice(a1.indexOf(this), 1)
     a2.push(this)
     refresh()

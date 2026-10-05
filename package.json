@@ -9,40 +9,49 @@
     "standalone/dist"
   ],
   "scripts": {
-    "prepare": "webpack --mode production ; npm run standalone",
+    "prepare": "npm run build && npm run standalone",
     "watch": "webpack --mode development --watch",
     "example": "webpack --context example --config ./example/webpack.config.js --mode production",
     "example-server": "webpack-dev-server --hot --progress --context example --config ./example/webpack.config.js --mode development",
     "standalone": "webpack --context standalone --config ./standalone/webpack.config.js --mode production",
-    "gh-pages": "npm run example && npm run standalone && cp standalone/dist/vue-window-standalone.js example/dist && gh-pages -d example/dist"
+    "gh-pages": "npm run example && npm run standalone && cp standalone/dist/vue-window-standalone.js example/dist && gh-pages -d example/dist",
+    "build": "webpack --mode production && vue-tsc --declaration --emitDeclarationOnly --outDir lib/types",
+    "test": "vitest run",
+    "typecheck": "vue-tsc --noEmit && vue-tsc --noEmit -p example/tsconfig.json && vue-tsc --noEmit -p standalone/tsconfig.json",
+    "typecheck:consumer": "tsc --noEmit -p tests/types/tsconfig.json",
+    "verify-builds": "node scripts/verify-builds.cjs",
+    "verify": "npm test && npm run typecheck && npm run build && npm run typecheck:consumer && npm run standalone && npm run example && npm run verify-builds"
   },
   "peerDependencies": {
-    "vue": "2.*"
-  },
-  "dependencies": {
-    "tslib": "^1.9.3",
-    "vue-class-component": "^7.2.6",
-    "vue-property-decorator": "^9.1.2"
+    "vue": "^3.5.0"
   },
   "devDependencies": {
-    "@hscmap/vue-menu": "file:../hsc-vue-menu",
+    "@hscmap/vue-menu": "git+https://github.com/nikolaybobrovskiy/vue-menu.git",
     "@types/lodash": "^4.14.120",
-    "@vue/compiler-sfc": "^3.2.31",
+    "@vitejs/plugin-vue": "^6.0.9",
+    "@vue/compiler-sfc": "^3.5.43",
+    "@vue/test-utils": "^2.4.6",
+    "autoprefixer": "^10.6.1",
+    "copy-webpack-plugin": "^14.0.0",
     "css-loader": "^6.7.0",
     "file-loader": "^6.2.0",
-    "gh-pages": "^2.0.1",
-    "js-base64": "^2.5.1",
+    "gh-pages": "^6.3.0",
+    "js-base64": "^3.9.4",
+    "jsdom": "^27.0.0",
     "lodash": "^4.17.11",
     "sass": "^1.49.9",
-    "sass-loader": "^12.6.0",
+    "sass-loader": "^17.0.1",
     "style-loader": "^3.3.1",
     "ts-loader": "^9.2.7",
-    "typescript": "^3.3.1",
-    "vue-loader": "^15.9.8",
-    "vue-template-compiler": "^2.6.14",
-    "webpack": "^5.70.0",
-    "webpack-cli": "^4.9.2",
-    "webpack-dev-server": "^4.7.4"
+    "typescript": "~5.9.3",
+    "vite": "^7.3.0",
+    "vitest": "^4.1.0",
+    "vue": "^3.5.43",
+    "vue-loader": "^17.4.2",
+    "vue-tsc": "^3.3.12",
+    "webpack": "^5.111.1",
+    "webpack-cli": "^7.2.3",
+    "webpack-dev-server": "^6.0.0"
   },
   "keywords": [
     "Window",

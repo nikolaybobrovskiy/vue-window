@@ -1,7 +1,7 @@
 <template>
   <transition name="fade" @after-leave="$emit('close')" @after-enter="$emit('open')">
-    <div v-show="isOpen" class="window" :style="styleWindow" ref="window" @mousedown="activate" @touchstart="activate">
-      <div class="titlebar" :style="styleTitlebar" ref="titlebar">
+    <div v-show="isOpen" class="window" :style="styleWindow" ref="windowRef" @mousedown="activate" @touchstart="activate">
+      <div class="titlebar" :style="styleTitlebar" ref="titlebarRef">
         <div class="title">
           <template v-if="$slots.title">
             <slot name="title" />
@@ -12,7 +12,7 @@
           <my-button @click="closeButtonClick">&times;</my-button>
         </template>
       </div>
-      <div class="content" :style="styleContent" ref="content">
+      <div class="content" :style="styleContent" ref="contentRef">
         <slot />
       </div>
     </div>
@@ -57,7 +57,7 @@ export default WindowType
   cursor: move;
 }
 
-.fade-enter,
+.fade-enter-from,
 .fade-leave-to {
   opacity: 0;
   transform: scale(0.9);

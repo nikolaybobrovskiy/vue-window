@@ -13,22 +13,24 @@
     </hsc-menu-style-metal>
 
     <hsc-window-style-metal style="position: fixed; z-index: 1">
-      <hsc-window v-for="w of numberWindows" :key="w.id" :title="w.label" :closeButton="true" :isOpen.sync="w.isOpen">
+      <hsc-window v-for="w of numberWindows" :key="w.id" :title="w.label" :closeButton="true" v-model:isOpen="w.isOpen">
         <table>
-          <tr>
-            <th>N</th>
-            <th>N
-              <sup>2</sup>
-            </th>
-            <th>N
-              <sup>3</sup>
-            </th>
-          </tr>
-          <tr>
-            <td v-html="w.n"></td>
-            <td v-html="Math.pow(w.n, 2)"></td>
-            <td v-html="Math.pow(w.n, 3)"></td>
-          </tr>
+          <tbody>
+            <tr>
+              <th>N</th>
+              <th>N
+                <sup>2</sup>
+              </th>
+              <th>N
+                <sup>3</sup>
+              </th>
+            </tr>
+            <tr>
+              <td v-html="w.n"></td>
+              <td v-html="Math.pow(w.n, 2)"></td>
+              <td v-html="Math.pow(w.n, 3)"></td>
+            </tr>
+          </tbody>
         </table>
       </hsc-window>
     </hsc-window-style-metal>
@@ -37,12 +39,10 @@
 
 
 <script lang="ts">
-import { Vue, Component } from 'vue-property-decorator'
-import * as VueMenu from '@hscmap/vue-menu'
+import { defineComponent } from 'vue'
 import * as _ from 'lodash'
 
 
-Vue.use(VueMenu)
 
 
 export class NumberWindow {
@@ -59,14 +59,12 @@ export class NumberWindow {
 }
 
 
-@Component
-export default class Sample6 extends Vue {
-  numberWindows: NumberWindow[] = _.range(3).map(i => new NumberWindow())
-
-  newRandomNumber() {
-    this.numberWindows.push(new NumberWindow())
-  }
-}
+export default defineComponent({
+  data: () => ({ numberWindows: _.range(3).map(() => new NumberWindow()) }),
+  methods: {
+    newRandomNumber() { this.numberWindows.push(new NumberWindow()) },
+  },
+})
 </script>
 
 
